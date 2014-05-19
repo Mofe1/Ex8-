@@ -86,10 +86,6 @@ inspect(rt)
 #function based on target topic
 
 
-Dfilter <- function(corpus.topics){
-  sfilter <- sFilter(corpus, "Topics == topics")
-  return(sfilter)
-}
 
 
 #2. Preprocessing
@@ -110,7 +106,7 @@ topics <- c("earn", "acquisitions", "money-fx", "grain", "crude", "trade", "inte
 initialise <- function(rt,topics){
   for(i in 1:length(topics)){
     for(j in 1:length(rt)){
-      meta(rt[[j]],tag=title[i],type="document") <- "0"
+      meta(rt[[j]],tag=topics[i],type="document") <- "0"
     }
   }
   return(rt)
@@ -120,13 +116,13 @@ initialise <- function(rt,topics){
 # Tags. Longer in money-fx due to dash.
 Tag <- function(rt,topics){
   for(i in 1:length(topics)){
-    title <- topics[[i]]
-    topics.h <- title
+    topics <- topics[[i]]
+    topics.h <- topics
    
     if(topic == "moneyfx") topics.h <- "money-fx" 
     for(j in 1:length(rt)){
       if(topics.h %in% meta(rt[[j]],"Topics")){
-        meta(rt[[j]],tag=title,type="document") <- "1"
+        meta(rt[[j]],tag=topics,type="document") <- "1"
       } 
     }
   }
