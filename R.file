@@ -113,6 +113,7 @@ initialise <- function(rt,topics){
 }
 
 
+
 # Tags. Longer in money-fx due to dash.
 Tag <- function(rt,topics){
   for(i in 1:length(topics)){
