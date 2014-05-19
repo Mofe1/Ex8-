@@ -1,25 +1,12 @@
-#LOADING FILE AND Cleaning
-#LOADING FILE, PACKAGES AND CORPUS
-setwd("/Volumes/Neck/Google Drive/OneDrive/Documents/r")
-
-setwd("/Volumes/Neck/Google Drive/OneDrive/Documents/r")
-
-install.packages("tm")
-install.packages("plyr")
-install.packages("class")
-install.packages("RTextTools")
-install.packages("mclust")
-install.packages("fpc")
-install.packages("RWeka")
-install.packages("SnowballC")
-install.packages("slam")
-install.packages("topicmodels")
-install.packages("lda")
-install.packages("FKF")
-
-
-library(tm)
+#=============Require sent for Preperation=========
 require(tm)
+require(tm.corpus.Reuters21578)
+require(slam)
+require(NLP)
+require(openNLP)
+require(openNLPdata)
+require(rJava)
+require(SnowballC)
 require(plyr)
 require(class)
 require(RTextTools)
@@ -27,47 +14,18 @@ require(mclust)
 require(fpc)
 require(tm.corpus.Reuters21578)
 
+library(tm)
 
 #set tm options
 options(stringsAsFactors=FALSE)
 
 #loading Corpus-
 
-
-#load("EX10.RData")
-load("EX10.2.RData")
-
-#eXPLORING THE DATA- RT
-
-#load("EX10.RData")
-save.image("EX10.RData")
-
-#corpus is a collection of texts usually stored eletronically and from which we perfom our analysis.
-
 require(tm.corpus.Reuters21578)
 data(Reuters21578)
-
-
-#for exploring the data i first prepared it using the method above.importing the data.
-#then cleaned it and prepared it for general preprocessing. 
-#corpus is structure of managing documents in tm.
-#corpora is held in R memory
-# i volatile destroyer in R is - corpus(x, readerControl), Permanent Corpus is PCorpus
-#Another implementation is the PCorpus which implements a Permanent Corpus semantics, i.e., the documents are physically stored outside of R (e.g., in a database), 
-#corresponding R objects are basically only pointers to external structures, and changes to the underlying corpus are re???ected to all R objects associated with it. 
-#Compared to the volatile corpus the corpus encapsulated by a permanent corpus object is not destroyed if the corresponding R object is released.
-
-
 rt <-Reuters21578
-rt
-meta (rt[[1]])
 rt[[1]]
-save.image("EX10.2.RData")
-save.image("EX10.1.R")
 
-class(rt)                   
-explore1 <- class(rt[[16]])
-summary(explore1)
 
 ID(rt[[1]])                     
 meta(rt[[1]])                   
@@ -76,76 +34,55 @@ summary(rt)
 inspect(rt)  
 
 
-#loading a corpus: Text Documents
-#tells of the amount of metadata with tag-values pairs and a data frame.
-#this gives a meta data about the data/ 
-
-
-#filter out the needed topics/ using 10 most populod classes. 
-#model compares accuracy 
-#function based on target topic
-
-
-
-
 #2. Preprocessing
 
-rt <- tm_map(rt, tolower)              
-rt <- tm_map(rt, removeNumbers)        
-rt <- tm_map(rt, removePunctuation)    
-rt <- tm_map(rt, stripWhitespace)       
-rt <- tm_map(rt, stemDocument)          #Stemming
-rt <- tm_map(rt, removeWords, "said") 
-rt <- tm_map(rt, removeWords, stopwords("english"))   #Remove Stopwords
-tm_map(rt, stemDocument)
+prop.rt <- function(rt) {
+    rtlower <- tm_map(rt, tolower)
+    rtnum <- tm_map(rtlower, removeNumbers)
+    rtpun <- tm_map(rtnum, removePunctuation)
+    rtsw <- tm_map(rtpun, removeWords, stopwords("english"))
+    rtownSW <- tm_map(rtsw, removeWords, c("", ""))
+    rt <- tm_map(rt, removeWords, "said") 
+    rt <- tm_map(rt, removeWords, "and") 
+    rtWs <- tm_map(rtownSW, stripWhitespace)
+    rt_Doc <- tm_map(rtWs,stemDocument)
+
+  clean_corpus <- rt_Doc
+  
+  return(clean_corpus)
+}
+
+#prop.rt(rt)
+
 
 #given topics
 topics <- c("earn", "acquisitions", "money-fx", "grain", "crude", "trade", "interest", "ship", "wheat", "corn")
 
+#function to generate tdms and matrices-Tokenization 
 
-initialise <- function(rt,topics){
-  for(i in 1:length(topics)){
-    for(j in 1:length(rt)){
-      meta(rt[[j]],tag=topics[i],type="document") <- "0"
-    }
-  }
-  return(rt)
+loadDtm <- function() {
+  rtdtm <-DocumentTermMatrix(clean_corpus)
+  rtdtm <- removeSparseTerms(rtdtm, 0.995)
 }
 
 
-
-# Tags. Longer in money-fx due to dash.
-Tag <- function(rt,topics){
-  for(i in 1:length(topics)){
-    topics <- topics[[i]]
-    topics.h <- topics
-   
-    if(topic == "moneyfx") topics.h <- "money-fx" 
-    for(j in 1:length(rt)){
-      if(topics.h %in% meta(rt[[j]],"Topics")){
-        meta(rt[[j]],tag=topics,type="document") <- "1"
-      } 
-    }
-  }
-  return(rt)
+loadDF <- function() {
+  rtdf <- as.data.frame(inspect(rtdtm))
 }
 
 
-initialise <- function(rt,topics){
-  for(i in 1:length(topics)){
-    for(j in 1:length(rt)){
-      meta(rt[[j]],tag=topics[i],type="document") <- "0"
+loadTopics <- function() {
+  v1 <- data.frame()
+  for (t in 1:length(topics)) {
+    for(i in 1:length(clean.corpus)) {
+      d[i,t] <- any(meta(clean_corpus[[i]],tag="Topics")==topics[t])
     }
   }
-  return(rt)
+  colnames(d) <- headings
+  v1 <- sapply(d,as.factor)
 }
 
 
-
-
-rt
-#  followleader
-rt <- initialise(rt,topics)
 
 
 #3. Split Corpus into train set and test set
@@ -157,94 +94,3 @@ rtTrain <- tm_filter(rt, FUN = sFilter, Splrt1)
 #Test set
 Splrt2 <- "LEWISSPLIT == 'TEST'"
 rtTest <- tm_filter(rt, FUN = sFilter, Splrt2)
-
-
-
-#gives list of possible tranforms
-#getTransformations()
-
-#feature detection
-
-
-
-#cleaning the split data in training and test
-
-rtTrain <- preprocess_Corpus(rtTrain)
-rtTest <- preprocess_Corpus(rtTest)
-
-
-k-Nearest Neighbour Classification
-
-#add multi corupus into one tdm
-
-
-#4.1 Create Trem-document matrix
-docmex <- DocumentTermMatrix(rtTrain)
-Dtrim <- dim(docmex)
-
-#4.2 TF-IDF
-library(slam)
-#Train Set
-idf_train <- tapply(docmex$v/row_sums(docmex)[docmex$i], docmex$j, mean) * log2(nDocs(docmex)/col_sums(docmex > 0))
-summary(idf_train)
-#remove documents with value = 0.09 which is atleast equal to the median 
-docmex <- docmex[,idf_train >= 0.09]
-docmex <- docmex[row_sums(docmex) > 0,]
-dim(docmex)
-
-
-
-save.image("Fin_Ass2_1363190.3.R")
-save.image("load3.RData")
-
-
-#4.3 Remove Sparse Terms
-docmex <- removeSparseTerms(docmex, 0.995)
-dim(docmex)
-
-#4.4 Dicto=ionary from traning set 
-TermDic <- colnames(docmex)        
-rtdmTest <- DocumentTermMatrix(rtTest, list(dictionary=TermDic))
-dim(rtdmTest)
-
-ftdm <- function(corpus) {
-  
-  unigram <- TermDocumentMatrix(corpus)
-  bigram <- TermDocumentMatrix(corpus, control = list(tokenize = bigtok(corpus)))
-  trigram <- TermDocumentMatrix(corpus, control = list(tokenize = trigram(corpus)))
-  
-  ftdm <- rbind(unigram, bigram, trigram)
-  ftdm <- as.TermDocumentMatrix(ftdm,weightTfIdf)
-  
-  return(ftdm)
-}
-ftdm(rt)
-
-
-top topic.
-
-
-library(topicmodels)
-
-#5. Topic Model
-#Assume 30 topics// making use of Linear discriminant analysis.
-library(lda)
-k <- 30
-rtm30 <- LDA(rtdm, k=k, method = "VEM", control = list(seed = as.integer(Sys.time())))
-#20 most common terms in each topic to infere theme/topic
-rtTerms <- terms(rtm30, 10)
-rtTerms <- as.data.frame(rtTerms)
-
-rtTopics <- posterior(rtm30, rtdm)$topics
-df.rtTopics <- as.data.frame(rtTopics)
-
-#Feature Selection using topic model terms
-#Build dictionary based on terms of topic model
-
-#Apply dictionary to both train set and test set to create termed document matrix
-rtdm2Train <- DocumentTermMatrix(rtTrain, list(dictionary=TermDic))
-
-#Visulaisation for Topic Model
-#Wordcloud
-save.image("EX10.2.RData")
-save.image("EX10.1.R")
