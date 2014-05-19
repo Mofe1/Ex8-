@@ -1,3 +1,4 @@
+
 #=============Require sent for Preperation=========
 require(tm)
 require(tm.corpus.Reuters21578)
@@ -52,39 +53,13 @@ prop.rt <- function(rt) {
   return(clean_corpus)
 }
 
-#prop.rt(rt)
+clean_corpus <- prop.rt(rt)
 
 
 #given topics
 topics <- c("earn", "acquisitions", "money-fx", "grain", "crude", "trade", "interest", "ship", "wheat", "corn")
 
 #function to generate tdms and matrices-Tokenization 
-
-loadDtm <- function() {
-  rtdtm <-DocumentTermMatrix(clean_corpus)
-  rtdtm <- removeSparseTerms(rtdtm, 0.995)
-}
-
-
-loadDF <- function() {
-  rtdf <- as.data.frame(inspect(rtdtm))
-}
-
-
-loadTopics <- function() {
-  v1 <- data.frame()
-  for (t in 1:length(topics)) {
-    for(i in 1:length(clean.corpus)) {
-      d[i,t] <- any(meta(clean_corpus[[i]],tag="Topics")==topics[t])
-    }
-  }
-  colnames(d) <- headings
-  v1 <- sapply(d,as.factor)
-}
-
-
-
-
 #3. Split Corpus into train set and test set
 #Train Set
 
@@ -94,3 +69,229 @@ rtTrain <- tm_filter(rt, FUN = sFilter, Splrt1)
 #Test set
 Splrt2 <- "LEWISSPLIT == 'TEST'"
 rtTest <- tm_filter(rt, FUN = sFilter, Splrt2)
+
+rtTrain <- prop.rt(rtTrain)
+rtTest  <- prop.rt(rtTest)
+
+rtdtmtrain <-DocumentTermMatrix(rtTrain)
+
+#cleaning the split data in training and test
+
+
+#4.1 Create Trem-document matrix
+docmex <- DocumentTermMatrix(rtTrain)
+Dtrim <- dim(docmex)
+#Dtrim
+
+#4.2 TF-IDF
+library(slam)
+#Train Set
+idf_train <- tapply(docmex$v/row_sums(docmex)[docmex$i], docmex$j, mean) * log2(nDocs(docmex)/col_sums(docmex > 0))
+summary(idf_train)
+#plot(idf_train)
+
+docmex <- docmex[,idf_train >= 0.995]
+docmex <- docmex[row_sums(docmex) > 0,]
+dim(docmex)
+
+#Remove SparseTerms
+rtdmTrain <- removeSparseTerms(docmex, 0.995)
+dim(rtdmTrain)
+plot(rtdmTrain)
+
+save.image("Fin_Ass2_1363190.3.R")
+save.image("load3.RData")
+
+
+#4.3 Remove Sparse Terms
+docmex <- removeSparseTerms(docmex, 0.1)
+dim(docmex)
+
+#4.4 Dictoionary 
+TermDic <- colnames(docmex)        
+rtdmTest <- DocumentTermMatrix(rtTest, list(dictionary=TermDic))
+dim(rtdmTest)
+
+
+
+k <- 30
+rtm30 <- LDA(rtdmTest, k=k, method = "VEM", control = list(seed = as.integer(Sys.time())))
+
+rtTerms <- terms(rtm30, 10)
+rtTerms <- as.data.frame(rtTerms)
+
+rtTopics <- posterior(rtm30, rtdm)$topics
+df.rtTopics <- as.data.frame(rtTopics)
+
+#Feature Selection using topic model terms
+#Build dictionary based on terms of topic model
+
+#Apply dictionary to both train set and test set to create termed document matrix
+rtdm2tr <- DocumentTermMatrix(rtTrain, list(dictionary=TermDic))
+
+top topic.
+
+
+library(topicmodels)
+
+#5. Topic Model
+#Assume 30 topics// making use of Linear discriminant analysis.
+library(lda)
+k <- 30
+rtm30 <- LDA(rtdm2tr, k=k, method = "VEM", control = list(seed = as.integer(Sys.time())))
+#20 most common terms in each topic to infere theme/topic
+rtTerms <- terms(rtm30, 10)
+rtTerms <- as.data.frame(rtTerms)
+
+rtTopics <- posterior(rtm30, rtdm)$topics
+df.rtTopics <- as.data.frame(rtTopics)
+
+
+rtdm2train <- DocumentTermMatrix(rtTrain, list(dictionary=TermDic))
+rtdm2Train
+
+#Wordcloud
+
+
+
+#7.1 Classification
+
+labelFun <- function(topic, rt) {
+  label <- list()
+  for (i in 1:length(topic)){
+    label[[i]] <- rep(0, length(rt))
+
+    for (j in 1:length(rt)) {
+      if (topic[i] %in% meta(rt[[j]], tag = 'Topics')) {
+        label[[i]][j] <- 1
+      }
+    }
+  }
+
+  
+  ldafr <- do.call(cbind.data.frame, label)
+  names(ldafr) <- topic
+  return(ldafr)
+}
+
+#Dataframe for class labels
+labelDF <- labelFUN(Topic, rt)
+
+library(RTextTools)
+rtdmNew <- rbind(rtdmTrain, rtdmTest)
+
+
+container <- list()
+analytics <- list()
+for(i in 1:length(Topic)){
+  container[[i]] <- create_container(rtdmNew, labelDF[rownames(rtdmNew), i], trainSize = 1:12850, testSize= 12850:19049, virgin=FALSE)
+  
+  #Train
+  SVM <- train_model(container[[i]], "SVM")
+  RF <- train_model(container[[i]], "RF")
+  TREE <- train_model(container[[i]], "TREE")
+  
+  #Classify
+  SVMCL <- classify_model(container[[i]], SVM)
+  RFCL <- classify_model(container[[i]], RF)
+  TREECL <- classify_model(container[[i]], TREE)
+  
+  #Analytics
+  analytics[[i]] <- create_analytics(container[[i]], cbind(SVMCL, RFCL, TREECL))
+}
+
+
+container <- list()
+analytics <- list()
+
+#Topic 1
+container[[1]] <- create_container(rtdmNew, labelDF[rownames(rtdmNew), 1], trainSize = 1:12861, testSize= 12862:19049, virgin=FALSE)
+#Train
+SVM <- train_model(container[[1]], "SVM")
+RF <- train_model(container[[1]], "RF")
+TREE <- train_model(container[[1]], "TREE")
+
+#Classify
+SvmCL <- classify_model(container[[1]], SVM)
+RfCL <- classify_model(container[[1]], RF)
+TreeCL <- classify_model(container[[1]], TREE)
+#Analytics
+analytics[[1]] <- create_analytics(container[[1]], cbind(SvmCL, RfCL, TreeCL))
+
+
+
+
+#Evaluation criteia 
+Precision <-c()
+Recall <- c()
+F1Score <- c()
+
+#SVM Accuracy dataframe
+for(i in 1:length(Topics) {
+  Precision[i] <- summary(analytics[[i]])[1]
+  Recall[i] <- summary(analytics[[i]])[2]
+  F1Score[i] <- summary(analytics[[i]])[3]
+}
+scoreSVM <- data.frame(Topics, Precision, Recall, F1Score)
+
+
+
+#TREE Accuracy dataframe
+for(i in 1:length(Topics) {
+  Precision[i] <- summary(analytics[[i]])[7]
+  Recall[i] <- summary(analytics[[i]])[8]
+  F1Score[i] <- summary(analytics[[i]])[9]
+}
+scoreTREE <- data.frame(Topics, Precision, Recall, F1Score)
+
+#Visualise
+library(ggplot2)
+#Plot SVM Measures
+plotSVM <- data.frame(scoreSVM[1], stack(scoreSVM[2:4]))
+colnames(plotSVM) <- c("Topics", "Measures", "Type")
+ggplot(data=scoreSVM, aes(x=Topics, y=Measures, group=Type, color=Type)) + geom_line() + geom_point()
+
+#Plot RF Measures
+plotRF <- data.frame(scoreRF[1], stack(scoreRF[2:4]))
+colnames(plotRF) <- c("Topics", "Measures", "Type")
+ggplot(data=scoreRF, aes(x=Topics, y=Measures, group=Type, color=Type)) + geom_line() + geom_point()
+
+rtdmClust <- as.matrix(rtdmNew)
+
+
+
+k-means
+ma <- as.matrix(dtm_tfxidf)
+rownames(ma) <- 1:nrow(ma)
+
+
+noeucl <- function(ma) m/apply(ma, MARGIN=1, FUN=function(x) sum(x^2)^.5)
+norm <- noeucl(ma)
+
+
+# cluster into 10 clusters
+cl <- kmeans(m_norm, 10)
+cl
+
+table(cl$cluster)
+
+#show clusters using the first 2 principal components
+plot(prcomp(norm)$x, col=cl$cl)
+
+findFreqTerms(dtm[cl$cluster==1], 50)
+inspect(reuters[which(cl$cluster==1)])
+
+# hierarchical clustering
+library(proxy)
+
+# long processing time (O(n^2))
+d <- dist(m, method="cosine")
+hc <- hclust(d, method="average")
+plot(hc)
+
+cl <- cutree(hc, 50)
+table(cl)
+findFreqTerms(dtm[cl==1], 50)
+
+# hard work, but not completed
+# help from classmate and ref in report
